@@ -1,0 +1,149 @@
+### ===== DURABLE AGENT SAMPLE HTTP REQUESTS =====
+###
+### This file contains sample HTTP requests to test the locally sourced durable agent framework
+### Use with VS Code REST Client extension or similar HTTP testing tools
+### 
+### Available Endpoints:
+### 1. POST /api/entity/chat/{agentName} - Fire-and-forget execution (Entity-based)
+### 2. GET /api/entity/state/{sessionId} - Get agent state (Entity-based)
+### 3. POST /api/direct/chat/{agentName} - Synchronous execution (Direct)
+### 4. GET /api/core/health - Health check
+###
+
+@baseUrl = http://localhost:7071/api
+
+### ===== 1. ENTITY-BASED EXECUTION (Fire-and-Forget) =====
+
+### Calculate Square (Entity Mode)
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "What is the square of 7?",
+  "session_key": "demo-session-001"
+}
+
+### Calculate Factorial (Entity Mode)
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "Calculate factorial of 5",
+  "session_key": "demo-session-002"
+}
+
+### Solve Expression (Entity Mode)
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "Solve this: 15 + 25 * 2",
+  "session_key": "demo-session-003"
+}
+
+### Hello Tool (Entity Mode)
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "hello",
+  "session_key": "demo-session-004"
+}
+
+### General Question (Entity Mode)
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "What can you help me with?",
+  "session_key": "demo-session-005"
+}
+
+### ===== 2. CHECK AGENT STATE =====
+
+### Get State for Session 001
+GET {{baseUrl}}/entity/state/MathAgent:demo-session-001
+
+### Get State for Session 002
+GET {{baseUrl}}/entity/state/MathAgent:demo-session-002
+
+### Get State for Session 003
+GET {{baseUrl}}/entity/state/MathAgent:demo-session-003
+
+### ===== 3. DIRECT EXECUTION (Synchronous) =====
+
+### Calculate Square (Direct Mode)
+POST {{baseUrl}}/direct/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "What is the square of 9?",
+  "session_key": "direct-session-001"
+}
+
+### Calculate Factorial (Direct Mode)
+POST {{baseUrl}}/direct/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "Calculate factorial of 6",
+  "session_key": "direct-session-002"
+}
+
+### Solve Expression (Direct Mode)
+POST {{baseUrl}}/direct/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "Solve: 100 / 5 + 3",
+  "session_key": "direct-session-003"
+}
+
+### ===== 4. HEALTH CHECK =====
+
+### Core Health Check (Removed endpoint)
+GET {{baseUrl}}/core/health
+
+### ===== 5. ERROR SCENARIOS =====
+
+### Invalid Session Format
+GET {{baseUrl}}/entity/state/invalid-format
+
+### Missing Agent Name
+POST {{baseUrl}}/entity/chat/
+Content-Type: application/json
+
+{
+  "message": "Test message"
+}
+
+### Non-existent Agent
+POST {{baseUrl}}/direct/chat/NonExistentAgent
+Content-Type: application/json
+
+{
+  "message": "Hello"
+}
+
+### ===== 6. BATCH TESTING =====
+
+### Multiple requests for same session (Entity Mode)
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "Calculate square of 3",
+  "session_key": "batch-session"
+}
+
+###
+POST {{baseUrl}}/entity/chat/MathAgent
+Content-Type: application/json
+
+{
+  "message": "Now calculate factorial of 4",
+  "session_key": "batch-session"
+}
+
+###
+GET {{baseUrl}}/entity/state/MathAgent:batch-session

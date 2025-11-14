@@ -1,0 +1,29 @@
+{
+  "name": "simple-agent-app-local",
+  "version": "1.0.0",
+  "description": "Simple agent app using locally sourced durable-agent framework",
+  "main": "dist/function-app-simplified.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && func start",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "demo": "npm run build && node dist/demo.js",
+    "demo-endpoints": "npm run build && node dist/demo-endpoints.js",
+    "test": "node test-execution-modes.js",
+    "test-endpoints": "npm run build && node dist/test-endpoints.js"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "durable-functions": "^3.0.0",
+    "openai": "^4.0.0",
+    "zod": "^3.25.0",
+    "@openai/agents": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "axios": "^1.12.2",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.0.0"
+  }
+}
