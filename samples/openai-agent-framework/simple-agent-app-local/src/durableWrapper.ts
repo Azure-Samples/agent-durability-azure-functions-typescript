@@ -171,6 +171,18 @@ export class DurableOpenAiAgentWrapper {
   }
 
   /**
+   * Generate a GUID (Globally Unique Identifier)
+   * @returns A GUID string
+   */
+  private generateGuid(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
    * Execute OpenAI chat with tool calling support
    * @param message User message to process
    * @returns AI response
@@ -247,9 +259,11 @@ export class DurableOpenAiAgentWrapper {
   /**
    * Create HTTP endpoint for chatting with the agent
    * @param route HTTP route pattern (default: 'agent/chat/{sessionId?}')
-   * @param functionName Function name (default: 'chatWithAgent')
+   * @param functionName Function name (auto-generated based on agent name)
    */
-  createChatEndpoint(route: string = 'agent/chat/{sessionId?}', functionName: string = 'chatWithAgent'): void {
+  createChatEndpoint(route: string = 'agent/chat/{sessionId?}', functionName?: string): void {
+    const agentId = this.config.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    functionName = functionName || `chatWith${this.config.name.replace(/[^a-zA-Z0-9]/g, '')}Agent`;
     app.http(functionName, {
       methods: ['POST'],
       route: route,
@@ -263,7 +277,19 @@ export class DurableOpenAiAgentWrapper {
           
           const body = await request.json() as any;
           const message = body?.message || body?.prompt || 'Hello';
-          const sessionId = request.params.sessionId || body?.session_id || `session-${Date.now()}`;
+          
+          // Generate session ID - use provided sessionId as-is or create new one
+          let sessionId: string;
+          if (body?.sessionId) {
+            // Use provided sessionId from JSON body as-is
+            sessionId = body.sessionId;
+          } else if (request.params.sessionId) {
+            // Use URL parameter sessionId as-is
+            sessionId = request.params.sessionId;
+          } else {
+            // Generate completely new session ID
+            sessionId = `session-${this.generateGuid()}`;
+          }
           
           console.log(`[HTTP] 💬 "${message.substring(0, 50)}..." → Session: ${sessionId}`);
           
@@ -272,20 +298,68 @@ export class DurableOpenAiAgentWrapper {
             input: { message, sessionId }
           });
           
-          const processingTime = Date.now() - startTime;
-          console.log(`[HTTP] ✅ Started orchestrator ${instanceId} in ${processingTime}ms`);
+          console.log(`[HTTP] ⏳ Waiting for orchestrator ${instanceId} to complete...`);
           
-          return {
-            status: 202,
-            jsonBody: {
-              success: true,
-              message: 'Chat processing started',
-              sessionId,
-              instanceId,
-              timestamp: new Date().toISOString(),
-              processingTimeMs: processingTime
+          console.log(`[HTTP] ✅ Started orchestrator ${instanceId} in ${Date.now() - startTime}ms`);
+          
+          // Generate state endpoint URL  
+          const agentId = this.config.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const stateEndpoint = `/api/${agentId}/state/${sessionId}`;
+          
+          // Wait for orchestrator to complete and get result
+          try {
+            const orchestrationStatus = await client.getStatus(instanceId);
+            if (orchestrationStatus?.output) {
+              const result = orchestrationStatus.output as { success: boolean; response?: string };
+              const processingTime = Date.now() - startTime;
+              console.log(`[HTTP] ✅ Chat completed in ${processingTime}ms`);
+              
+              return {
+                status: 200,
+                jsonBody: {
+                  success: true,
+                  message: result.response || 'Chat completed',
+                  sessionId,
+                  instanceId,
+                  stateEndpoint,
+                  timestamp: new Date().toISOString(),
+                  processingTimeMs: processingTime
+                }
+              };
+            } else {
+              // Still processing or no result yet
+              const processingTime = Date.now() - startTime;
+              return {
+                status: 202,
+                jsonBody: {
+                  success: true,
+                  message: 'Chat processing started',
+                  sessionId,
+                  instanceId,
+                  stateEndpoint,
+                  timestamp: new Date().toISOString(),
+                  processingTimeMs: processingTime
+                }
+              };
             }
-          };
+          } catch (statusError) {
+            // Fallback to async processing
+            const processingTime = Date.now() - startTime;
+            console.log(`[HTTP] ⚡ Async processing for ${instanceId} in ${processingTime}ms`);
+            
+            return {
+              status: 202,
+              jsonBody: {
+                success: true,
+                message: 'Chat processing started',
+                sessionId,
+                instanceId,
+                stateEndpoint,
+                timestamp: new Date().toISOString(),
+                processingTimeMs: processingTime
+              }
+            };
+          }
           
         } catch (error) {
           const processingTime = Date.now() - startTime;
@@ -308,9 +382,10 @@ export class DurableOpenAiAgentWrapper {
   /**
    * Create HTTP endpoint for getting conversation state
    * @param route HTTP route pattern (default: 'agent/state/{sessionId}')
-   * @param functionName Function name (default: 'getAgentState')
+   * @param functionName Function name (auto-generated based on agent name)
    */
-  createStateEndpoint(route: string = 'agent/state/{sessionId}', functionName: string = 'getAgentState'): void {
+  createStateEndpoint(route: string = 'agent/state/{sessionId}', functionName?: string): void {
+    functionName = functionName || `get${this.config.name.replace(/[^a-zA-Z0-9]/g, '')}AgentState`;
     app.http(functionName, {
       methods: ['GET'],
       route: route,
@@ -390,9 +465,10 @@ export class DurableOpenAiAgentWrapper {
   /**
    * Create health check endpoint
    * @param route HTTP route pattern (default: 'health')
-   * @param functionName Function name (default: 'healthCheck')
+   * @param functionName Function name (auto-generated based on agent name)
    */
-  createHealthEndpoint(route: string = 'health', functionName: string = 'healthCheck'): void {
+  createHealthEndpoint(route: string = 'health', functionName?: string): void {
+    functionName = functionName || `${this.config.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}HealthCheck`;
     app.http(functionName, {
       methods: ['GET'],
       route: route,
@@ -432,14 +508,15 @@ export class DurableOpenAiAgentWrapper {
   run(): void {
     console.log(`[AGENT] 🚀 Running ${this.config.name} with durable functions...`);
     
+    const agentId = this.config.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    
     this.createConversationEntity();
     this.createChatOrchestrator();
-    this.createChatEndpoint();
-    this.createStateEndpoint();
-    this.createHealthEndpoint();
+    this.createChatEndpoint(`${agentId}/chat/{sessionId?}`);
+    this.createStateEndpoint(`${agentId}/state/{sessionId}`);
+    this.createHealthEndpoint(`${agentId}/health`);
     
     console.log(`[AGENT] ✅ ${this.config.name} is now running successfully!`);
-    console.log(`[AGENT] 📍 Endpoints: /api/agent/chat/{sessionId}, /api/agent/state/{sessionId}, /api/health`);
+    console.log(`[AGENT] 📍 Endpoints: /api/${agentId}/chat/{sessionId}, /api/${agentId}/state/{sessionId}, /api/${agentId}/health`);
   }
 }
-
