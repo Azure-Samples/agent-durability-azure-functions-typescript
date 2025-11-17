@@ -1,12 +1,12 @@
 /**
- * Simplified Function App using Tool and Durable Wrappers
+ * Simplified Function App using Tool and Durable Agent Orchestrator
  * 
  * This example shows how customers can easily create an AI agent
- * using the provided wrapper libraries with minimal boilerplate.
+ * using the provided orchestrator libraries with minimal boilerplate.
  */
 
 import { createTool, createParameter, ToolRegistry } from './Tool';
-import { DurableOpenAiAgentWrapper } from './durableWrapper';
+import { DurableOpenAiAgentOrchestrator } from './durableAgentOrchestrator';
 
 // ===== STEP 1: CREATE TOOL REGISTRY =====
 
@@ -74,7 +74,7 @@ toolRegistry.registerTool(createTool({
 
 // ===== STEP 2: CREATE DURABLE AGENT =====
 
-const agent = new DurableOpenAiAgentWrapper(
+const agent = new DurableOpenAiAgentOrchestrator(
   process.env.OPENAI_API_KEY || '',
   {
     name: 'MathAgent',

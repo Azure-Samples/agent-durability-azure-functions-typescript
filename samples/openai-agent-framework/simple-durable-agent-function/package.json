@@ -2,7 +2,7 @@
   "name": "simple-agent-app-local",
   "version": "1.0.0",
   "description": "Simple agent app using locally sourced durable-agent framework",
-  "main": "dist/function-app-simplified.js",
+  "main": "dist/function-app.js",
   "scripts": {
     "build": "tsc",
     "start": "npm run build && func start",

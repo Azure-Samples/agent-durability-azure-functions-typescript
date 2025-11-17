@@ -1,8 +1,9 @@
 /**
- * Durable Functions Wrapper
+ * Durable Agent Orchestrator
  * 
- * This module provides a simplified wrapper around Azure Durable Functions
- * for building AI agents with persistent conversation state.
+ * This module orchestrates the creation and management of Azure Durable Functions
+ * for building AI agents with persistent conversation state. It coordinates
+ * entities, orchestrators, activities, and HTTP endpoints for complete agent lifecycle.
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
@@ -39,13 +40,13 @@ export interface ConversationState {
 }
 
 /**
- * Durable OpenAI Agent Wrapper
+ * Durable OpenAI Agent Orchestrator
  * 
- * Simplifies the creation of AI agents with durable state management.
- * Supports multiple agents in the same function app by creating unique
+ * Orchestrates the creation and management of AI agents with durable state management.
+ * Coordinates multiple agents in the same function app by creating unique
  * durable function names based on the agent name.
  */
-export class DurableOpenAiAgentWrapper {
+export class DurableOpenAiAgentOrchestrator {
   private openai: OpenAI;
   private config: AgentConfig;
   private toolRegistry: ToolRegistry;
@@ -64,9 +65,7 @@ export class DurableOpenAiAgentWrapper {
     this.orchestratorName = `${agentId}ChatOrchestrator`;
     this.activityName = `${agentId}ProcessChatActivity`;
     
-    console.log(`[AGENT] 🤖 Initializing ${config.name} with model ${config.model}`);
-    console.log(`[AGENT] 🔧 Entity: ${this.entityName}, Orchestrator: ${this.orchestratorName}`);
-    console.log(`[AGENT] 🛠️  Registered tools: ${toolRegistry.getToolNames().join(', ')}`);
+    console.log(`[AGENT] 🤖 ${config.name} initialized with ${config.model} | Tools: ${toolRegistry.getToolNames().join(', ')}`);
   }
 
   /**
@@ -517,6 +516,5 @@ export class DurableOpenAiAgentWrapper {
     this.createHealthEndpoint(`${agentId}/health`);
     
     console.log(`[AGENT] ✅ ${this.config.name} is now running successfully!`);
-    console.log(`[AGENT] 📍 Endpoints: /api/${agentId}/chat/{sessionId}, /api/${agentId}/state/{sessionId}, /api/${agentId}/health`);
   }
 }
