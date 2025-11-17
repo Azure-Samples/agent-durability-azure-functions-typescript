@@ -1,0 +1,24 @@
+{
+  "name": "human-in-loop-sample",
+  "version": "1.0.0",
+  "description": "Human-in-the-Loop AI Agents with Azure Functions and OpenAI",
+  "main": "dist/function-app.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "func start",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "durable-functions": "^3.0.4",
+    "openai": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
