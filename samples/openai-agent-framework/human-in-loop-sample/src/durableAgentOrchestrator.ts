@@ -172,6 +172,7 @@ export class HumanInLoopDurableAgentOrchestrator {
           context.df.setState(state);
           
           console.log(`[ENTITY] 👥 Added approval request for session: ${approvalRequest.sessionId}, tool: ${approvalInput.toolName}`);
+          console.log(`[ENTITY] 📊 State after adding approval: ${state.pendingApprovals.length} total approvals`);
           return { success: true, sessionId: approvalRequest.sessionId };
 
         case 'handleApproval':
@@ -180,6 +181,9 @@ export class HumanInLoopDurableAgentOrchestrator {
             decision: 'approved' | 'rejected';
             humanResponse?: string;
           };
+          
+          console.log(`[ENTITY] 🔍 Looking for approval: sessionId=${approvalResponse.sessionId}, current approvals:`, 
+            state.pendingApprovals.map(a => `${a.sessionId}:${a.toolName}:${a.status}`));
           
           const approval = state.pendingApprovals.find(a => a.sessionId === approvalResponse.sessionId && a.status === 'pending');
           if (approval) {
@@ -218,6 +222,29 @@ export class HumanInLoopDurableAgentOrchestrator {
             chatHistory: state.chatHistory,
             approvalHistory: state.pendingApprovals
           };
+          
+        case 'removeCompletedApproval':
+          const removeInput = context.df.getInput() as {
+            sessionId: string;
+            toolName: string;
+          };
+          
+          const approvalIndex = state.pendingApprovals.findIndex(a => 
+            a.sessionId === removeInput.sessionId && 
+            a.toolName === removeInput.toolName
+          );
+          
+          if (approvalIndex !== -1) {
+            const removedApproval = state.pendingApprovals.splice(approvalIndex, 1)[0];
+            state.lastUpdated = new Date().toISOString();
+            context.df.setState(state);
+            
+            console.log(`[ENTITY] 🗑️ Removed completed approval: session=${removeInput.sessionId}, tool=${removeInput.toolName}, status=${removedApproval.status}`);
+            return { success: true, removedApproval };
+          } else {
+            console.log(`[ENTITY] ❌ Approval not found for removal: session=${removeInput.sessionId}, tool=${removeInput.toolName}`);
+            return { success: false, error: 'Approval not found' };
+          }
           
         default:
           return state;
@@ -281,49 +308,95 @@ export class HumanInLoopDurableAgentOrchestrator {
               
               console.log(`[ORCHESTRATOR] 👥 Created approval request for session: ${sessionId}`);
               
-              // Poll for approval decision with timeout
-              const timeoutDate = new Date(context.df.currentUtcDateTime.getTime() + (approvalTimeoutMinutes * 60 * 1000));
+              // Wait for external event with timeout instead of polling
+              console.log(`[ORCHESTRATOR] ⏳ Waiting for external event 'HumanApprovalReceived' with timeout: ${approvalTimeoutMinutes} minutes`);
+              
+              // Create timeout task
+              const timeoutTask = context.df.createTimer(new Date(context.df.currentUtcDateTime.getTime() + (approvalTimeoutMinutes * 60 * 1000)));
+              const approvalEventTask = context.df.waitForExternalEvent('HumanApprovalReceived');
+              
+              // Race between event and timeout
+              const winner = yield context.df.Task.any([approvalEventTask, timeoutTask]);
+              const approvalEvent = winner === approvalEventTask ? yield approvalEventTask : null;
+              
               let approvalReceived = false;
               let humanDecision: { approved: boolean; feedback?: string } | null = null;
               
-              // Poll every 5 seconds for approval decision
-              while (!approvalReceived && context.df.currentUtcDateTime < timeoutDate) {
-                // Wait 5 seconds before checking again
-                const delay = new Date(context.df.currentUtcDateTime.getTime() + 5000);
-                yield context.df.createTimer(delay);
-                
-                // Check if approval decision was made by getting the entity state
-                const entityState = yield context.df.callEntity(entityId, 'getState');
-                console.log(`[ORCHESTRATOR] 🔍 Entity state result:`, entityState);
-                
-                // Find our specific approval in the entity state
-                let currentApproval: any = null;
-                if (entityState?.pendingApprovals) {
-                  currentApproval = entityState.pendingApprovals.find((a: any) => 
-                    a.sessionId === sessionId && a.toolName === toolName && a.status !== 'pending'
-                  );
-                }
-                
-                if (currentApproval) {
-                  approvalReceived = true;
-                  humanDecision = {
-                    approved: currentApproval.status === 'approved',
-                    feedback: currentApproval.humanResponse || ''
-                  };
-                  console.log(`[ORCHESTRATOR] 👥 Received human decision: ${humanDecision.approved ? 'APPROVED' : 'REJECTED'}`);
-                }
+              if (approvalEvent) {
+                // External event received
+                approvalReceived = true;
+                humanDecision = {
+                  approved: approvalEvent.approved,
+                  feedback: approvalEvent.feedback || ''
+                };
+                console.log(`[ORCHESTRATOR] 🎉 Received external event - Human decision: ${humanDecision.approved ? 'APPROVED' : 'REJECTED'}`);
+              } else {
+                // Timeout occurred
+                console.log(`[ORCHESTRATOR] ⏰ External event timed out after ${approvalTimeoutMinutes} minutes`);
+                approvalReceived = false;
               }
               
               if (approvalReceived && humanDecision) {
                 if (humanDecision.approved) {
                   context.df.setCustomStatus(`Executing approved tool: ${toolName}`);
+                  
+                  // Log the pre-execution state
+                  console.log(`[ORCHESTRATOR] 💸 Starting financial operation execution for ${toolName} with human approval`);
+                  
+                  // Simulate financial operation initiation event
+                  console.log(`[FINANCIAL_EVENT] � Financial operation initiated:`, {
+                    sessionId,
+                    toolName,
+                    toolArgs,
+                    initiatedAt: new Date().toISOString(),
+                    approvedBy: 'human',
+                    status: 'initiated',
+                    amount: toolArgs.amount || 'N/A',
+                    fromAccount: toolArgs.fromAccount || 'N/A',
+                    toAccount: toolArgs.toAccount || 'N/A'
+                  });
+                  
+                  // Execute the actual financial tool
+                  console.log(`[ORCHESTRATOR] ⚙️ Calling tool execution activity for: ${toolName}`);
                   const toolResult = yield context.df.callActivity('ExecuteTool', {
                     toolName,
                     toolArgs
                   });
-                  finalResponse = `[HUMAN APPROVED] ${toolResult}`;
+                  
+                  // Simulate successful financial operation completion event
+                  console.log(`[FINANCIAL_EVENT] 🎉 Financial operation completed successfully:`, {
+                    sessionId,
+                    toolName,
+                    toolArgs,
+                    result: toolResult,
+                    completedAt: new Date().toISOString(),
+                    approvedBy: 'human',
+                    status: 'completed',
+                    transactionDetails: {
+                      amount: toolArgs.amount || 'N/A',
+                      fromAccount: toolArgs.fromAccount || 'N/A',
+                      toAccount: toolArgs.toAccount || 'N/A',
+                      description: 'Human-approved financial transfer executed successfully'
+                    }
+                  });
+                  
+                  finalResponse = `[HUMAN APPROVED & EXECUTED] 💰 ${toolResult}\n\n🎉 Financial operation completed with human oversight and approval!`;
+                  
+                  // Clean up the completed approval from pending list
+                  console.log(`[ORCHESTRATOR] 🧹 Cleaning up completed approval for session: ${sessionId}`);
+                  yield context.df.callEntity(entityId, 'removeCompletedApproval', {
+                    sessionId,
+                    toolName
+                  });
                 } else {
                   finalResponse = `[HUMAN REJECTED] ${humanDecision.feedback || 'Operation was rejected'}`;
+                  
+                  // Clean up the rejected approval from pending list
+                  console.log(`[ORCHESTRATOR] 🧹 Cleaning up rejected approval for session: ${sessionId}`);
+                  yield context.df.callEntity(entityId, 'removeCompletedApproval', {
+                    sessionId,
+                    toolName
+                  });
                 }
               } else {
                 // Timeout - mark as rejected
@@ -334,6 +407,13 @@ export class HumanInLoopDurableAgentOrchestrator {
                   humanResponse: `Timeout after ${approvalTimeoutMinutes} minutes`
                 });
                 finalResponse = `[TIMEOUT] Request timed out after ${approvalTimeoutMinutes} minutes`;
+                
+                // Clean up the timed-out approval from pending list
+                console.log(`[ORCHESTRATOR] 🧹 Cleaning up timed-out approval for session: ${sessionId}`);
+                yield context.df.callEntity(entityId, 'removeCompletedApproval', {
+                  sessionId,
+                  toolName
+                });
               }
               
               // Return approval info for immediate response
@@ -451,8 +531,11 @@ export class HumanInLoopDurableAgentOrchestrator {
           const client = df.getClient(context);
           const approvalTimeoutMinutes = body?.approvalTimeoutMinutes || 30;
           
+          // Use sessionId as the instance ID for consistent external event targeting
+          const customInstanceId = `${this.config.name}_${sessionId}`;
           const instanceId = await client.startNew(this.orchestratorName, {
-            input: { message, sessionId, approvalTimeoutMinutes }
+            input: { message, sessionId, approvalTimeoutMinutes },
+            instanceId: customInstanceId
           });
           
           // Wait a moment for orchestration to potentially return approval info
@@ -579,9 +662,17 @@ export class HumanInLoopDurableAgentOrchestrator {
             humanResponse: feedback || ''
           });
           
-          // Also raise external event to any running orchestrations for this session
-          // We need to find the instanceId for the session - this is a limitation we'll work around
-          // For now, we'll signal the entity and the orchestration should check the entity state
+          // Raise external event to notify any running orchestrations for this session
+          // Use the same instance ID pattern as when starting the orchestration
+          const orchestrationInstanceId = `${this.config.name}_${sessionId}`;
+          
+          console.log(`[HTTP] 🔔 Raising external event for orchestration: ${orchestrationInstanceId}`);
+          await client.raiseEvent(orchestrationInstanceId, 'HumanApprovalReceived', {
+            sessionId,
+            approved,
+            feedback: feedback || '',
+            timestamp: new Date().toISOString()
+          });
           
           const processingTime = Date.now() - startTime;
           console.log(`[HTTP] ✅ Stored approval decision for session ${sessionId}: ${approved ? 'APPROVED' : 'REJECTED'} in ${processingTime}ms`);
@@ -715,9 +806,5 @@ export class HumanInLoopDurableAgentOrchestrator {
     this.createSessionStatusEndpoint(`${agentId}/status/{sessionId}`);
     
     console.log(`[AGENT] ✅ ${this.config.name} Human-in-Loop Agent is now running successfully!`);
-    console.log(`[AGENT] 📍 Essential Endpoints:`);
-    console.log(`[AGENT]    💬 Chat: POST /api/${agentId}/chat/{sessionId}`);
-    console.log(`[AGENT]    ✅ Approve: POST /api/${agentId}/approve/{sessionId}`);
-    console.log(`[AGENT]    📈 Status: GET /api/${agentId}/status/{sessionId}`);
   }
 }
