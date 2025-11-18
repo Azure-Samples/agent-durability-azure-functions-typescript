@@ -56,14 +56,6 @@ When deploying to Azure, configure a **Storage Account** in your Function App se
 
 **Durable Functions** provide stateful operations in serverless environments by persisting execution state across function invocations.
 
-### Key Benefits of Durability:
-
-1. **Conversation Persistence**: Chat history survives between requests
-2. **Reliable Execution**: Functions can be interrupted and resumed seamlessly  
-3. **Stateful Workflows**: Complex multi-step operations with checkpointing
-4. **Scalability**: State is externalized, allowing functions to scale independently
-5. **Error Recovery**: Automatic retry and compensation patterns
-
 ### How the Math Agent Uses Durability:
 
 The agent creates **three types of durable functions**:
@@ -292,67 +284,3 @@ GET http://localhost:7071/api/core/health
   "uptime": 120.5
 }
 ```
-
-## Mathematical Tools Available
-
-The Math Agent includes these specialized mathematical tools:
-
-### 1. Calculate Square (`calculateSquare`)
-- **Purpose**: Calculate the square of any number (n²)
-- **Example**: "What is 5 squared?" → Calls calculateSquare(5) → Returns "The square of 5 is 25"
-
-### 2. Calculate Factorial (`calculateFactorial`) 
-- **Purpose**: Calculate factorial (n!) = n × (n-1) × (n-2) × ... × 1
-- **Example**: "What is 4 factorial?" → Calls calculateFactorial(4) → Returns "The factorial of 4 is 24"
-- **Note**: Includes validation for negative numbers
-
-### 3. Solve Mathematical Expressions (`solveEquation`)
-- **Purpose**: Safely evaluate mathematical expressions with basic operations
-- **Example**: "Solve 5 + 3 * 2" → Calls solveEquation("5 + 3 * 2") → Returns "The result of 5 + 3 * 2 is 11"
-- **Security**: Only allows safe mathematical characters to prevent code injection
-
-### 4. Friendly Greeting (`hello`)
-- **Purpose**: Returns a friendly greeting from the math assistant
-- **Example**: "Hello" → Calls hello() → Returns greeting message
-
-## Real OpenAI Integration
-
-The Math Agent uses actual OpenAI API for intelligent behavior:
-
-- **Natural Language**: "Can you calculate the square of 7?" → AI understands and calls calculateSquare(7)
-- **Multi-step Reasoning**: "What's 5 squared plus 3 factorial?" → AI calls multiple tools and provides final answer
-- **Context Understanding**: Complex mathematical requests are intelligently parsed and executed
-- **Function Calling**: Uses OpenAI's native function calling for reliable tool execution
-- **Step-by-Step Explanations**: AI explains the mathematical process clearly
-
-## Expected Behavior
-
-### Stateless Chat Architecture
-- **Immediate Response**: Chat endpoint returns immediately with processing confirmation
-- **Asynchronous Processing**: AI processing happens in the background using Durable Functions
-- **State Retrieval**: Use state endpoint to get actual AI responses and conversation history
-- **Reliability**: Durable Functions ensure processing completes even if there are temporary failures
-
-### Session Management
-- **Custom Sessions**: Use your own session keys for organized conversations
-- **Persistence**: Conversation history maintained across multiple requests
-- **Isolation**: Each session maintains separate conversation context
-
-### Tool Execution
-- **Automatic Detection**: AI automatically identifies when to use tools
-- **Sequential Execution**: Multiple tools can be called in one request
-- **Error Handling**: Tool failures are gracefully handled and reported
-- **Type Safety**: Full TypeScript support for tool parameters
-
-## Advantages
-
-This implementation provides **enhanced functionality** compared to pattern matching:
-
-- ✅ **No external `@azure/durable-agent` dependency**
-- ✅ **Real AI intelligence** instead of pattern matching
-- ✅ **Natural language understanding**
-- ✅ **Multi-tool reasoning and chaining**
-- ✅ **Stateless endpoint architecture** with durable state management
-- ✅ **Production-ready OpenAI integration**
-
-Perfect for building intelligent agents with real AI capabilities! 🧠✨
