@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
-    "durable-functions": "^3.0.4",
+    "durable-functions": "^3.3.0",
     "openai": "^4.20.0"
   },
   "devDependencies": {
